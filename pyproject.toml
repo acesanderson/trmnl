@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+[project]
+name = "trmnl"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.123.5",
+    "kagglehub>=0.3.13",
+    "lorem>=0.1.1",
+    "pandas>=2.3.3",
+    "pillow>=12.0.0",
+    "playwright>=1.56.0",
+    "pydantic>=2.12.5",
+    "rich>=14.2.0",
+    "uvicorn>=0.38.0",
+]
+[tool.hatch.build.targets.wheel]
+packages = ["src/trmnl"]
+sources = ["src"]
+[tool.hatch.build.targets.sdist]
+include = ["src/trmnl/py.typed"]

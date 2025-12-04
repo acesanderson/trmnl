@@ -23,3 +23,7 @@ packages = ["src/trmnl"]
 sources = ["src"]
 [tool.hatch.build.targets.sdist]
 include = ["src/trmnl/py.typed"]
+
+[project.scripts]
+trmnl = "trmnl.main:main"
+

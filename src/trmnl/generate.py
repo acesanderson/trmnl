@@ -54,6 +54,7 @@ def html_to_bmp(html_content: str, output_filename: str = "current.bmp"):
     # If you wanted threshold (solid black/white), you would use .convert("1", dither=Image.NONE)
     final_bmp = image.convert("1")
 
+    delete_all_bmp()
     final_bmp.save(output_filename)
     print(f"Generated {output_filename}")
 
@@ -69,7 +70,6 @@ def render_poem(title: str, poem: str, poet: str):
         <p>{poem_text}</p>
     </div>
     """
-    delete_all_bmp()
     output_filename = f"poem_{uuid.uuid4().hex}.bmp"
     html_to_bmp(poem_html, output_filename)
 

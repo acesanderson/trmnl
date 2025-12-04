@@ -1,5 +1,6 @@
 from trmnl.generate import generate
-from fastapi import FastAPI, Header, Response, Request
+from trmnl.logo import print_logo
+from fastapi import FastAPI, Header, Request
 from fastapi import BackgroundTasks
 from fastapi.responses import FileResponse, JSONResponse
 from pathlib import Path
@@ -8,6 +9,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent
+# BARB_BMP = BASE_DIR / "barb.bmp"
+REFRESH_INTERVAL = 30  # seconds
 
 app = FastAPI()
 
@@ -19,7 +22,14 @@ def discover_bmp(path: Path) -> Path:
     for file in path.iterdir():
         if file.suffix.lower() == ".bmp":
             return file
-    raise FileNotFoundError("No BMP file found in the specified directory.")
+    try:
+        generate()
+        for file in path.iterdir():
+            if file.suffix.lower() == ".bmp":
+                return file
+    except Exception as e:
+        logger.error("Something ain't working")
+        raise FileNotFoundError("No BMP file found in directory.")
 
 
 @app.get("/api/setup")
@@ -47,6 +57,7 @@ async def display_config(
     """Device asks for display content."""
     logger.info("Creating image URL for device display.")
     bmp_file = discover_bmp(BASE_DIR)
+    # bmp_file = BARB_BMP
     base_url = str(request.base_url).rstrip("/")
     image_url = f"{base_url}/api/image/{bmp_file.name}"
     logger.info(f"Display request from device: {id}, token: {access_token}")
@@ -58,7 +69,7 @@ async def display_config(
             "filename": bmp_file.stem,
             "update_firmware": False,
             "firmware_url": None,
-            "refresh_rate": "30",
+            "refresh_rate": REFRESH_INTERVAL,
             "reset_firmware": False,
         }
     )
@@ -89,6 +100,9 @@ async def catch_all(request: Request, path: str):
 
 
 def main():
+    # Ensure a BMP is present before starting the server
+    print_logo()
+    generate()
     uvicorn.run(
         "trmnl.main:app",
         host="0.0.0.0",

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from collections.abc import Callable
 
 if TYPE_CHECKING:
-    from trmnl.engine import ImageEngine
+    from trmnl.carousel import ImageEngine
 
 CACHE_DIR = xdg_cache_home() / "trmnl"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -18,6 +18,13 @@ CURRENT_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 class Settings:
     paths: dict[str, Path]
     default_engine: Callable[[], ImageEngine]
+    refresh_interval: int
+    server_ip: str
+    port: int
+
+    @property
+    def server_url(self) -> str:
+        return f"http://{self.server_ip}:{self.port}"
 
 
 def default_engine() -> ImageEngine:
@@ -36,6 +43,9 @@ def load_settings() -> Settings:
             "CURRENT_IMAGE_DIR": CURRENT_IMAGE_DIR,
         },
         default_engine=default_engine,
+        refresh_interval=30,
+        server_ip="10.0.0.82",
+        port=8070,
     )
 
 

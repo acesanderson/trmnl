@@ -6,7 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent
 
 def main():
     uvicorn.run(
-        "trmnl.main:app",
+        "trmnl.app:app",
         host="0.0.0.0",
         port=8070,
         reload=True,

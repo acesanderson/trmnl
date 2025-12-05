@@ -6,12 +6,10 @@ import pandas as pd
 from pathlib import Path
 import random
 import re
-import json
 import logging
+from functools import cache
 
 logger = logging.getLogger(__name__)
-
-POEM_LOG = Path(__file__).parent / "poem.log"
 
 dataset = Path(
     "/home/bianders/.cache/kagglehub/datasets/tgdivy/poetry-foundation-poems/versions/1/PoetryFoundationData.csv"
@@ -36,9 +34,10 @@ poets = [
 ]
 
 
-def filter_poems(df, authors, min_chars=100, max_chars=800) -> list[dict[str, str]]:
+@cache
+def filter_poems(min_chars=100, max_chars=800) -> list[dict[str, str]]:
     mask = (
-        df["Poet"].isin(authors)
+        df["Poet"].isin(pd.Series(poets))
         & (df["Poem"].str.len() <= max_chars)
         & (df["Poem"].str.len() >= min_chars)
     )
@@ -73,27 +72,9 @@ def clean_title(title: str) -> str:
     return " ".join(title.split()).strip()
 
 
-def random_poem() -> dict[str, str]:
-    filtered_poems = filter_poems(df, poets)
+async def random_poem() -> dict[str, str]:
+    filtered_poems = filter_poems()
     poem = random.choice(filtered_poems)
-
-    # Log the raw poem object
-    raw_poem_json = {
-        "title": poem["title"],
-        "poet": poem["poet"],
-        "poem": poem["poem"],
-    }
-    # if POEM_LOG has more than ten poems, truncate it
-    if POEM_LOG.exists():
-        with open(POEM_LOG, "r") as f:
-            lines = f.readlines()
-        if len(lines) >= 10:
-            with open(POEM_LOG, "w") as f:
-                f.writelines(lines[-9:])  # keep last 9 lines
-    # Append the new poem
-    with open(POEM_LOG, "a") as f:
-        f.write(json.dumps(raw_poem_json) + "\n")
-
     poem_text = clean_poem_text(poem["poem"])
     title = clean_title(poem["title"])
     poet = poem["poet"]

@@ -1,22 +1,36 @@
-from trmnl.generate import generate
+from trmnl.config import settings
 from trmnl.logo import print_logo
+from trmnl.carousel import Carousel, TRMNLImage
 from fastapi import FastAPI, Header, Request
-from fastapi import BackgroundTasks
 from fastapi.responses import FileResponse, JSONResponse
-from pathlib import Path
 from contextlib import asynccontextmanager
 import logging
 
 logger = logging.getLogger(__name__)
-REFRESH_INTERVAL = 30  # seconds
-
-app = FastAPI()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """
+    The lifespan context manager is used to set up and tear down resources for the FastAPI application.
+    Kick off events like printing the logo, of course, but also initalize any global resources and
+    store them in app.state for access in route handlers.
+    app.state is like a dict accessed through dot notation.
+    Any teardown code would go after the yield.
+    """
+    engine = settings.default_engine()
+    carousel = Carousel(engine=engine)
+    try:
+        await carousel.next()  # pre-load the first image
+    except Exception as e:
+        logger.error(f"Error initializing carousel: {e}")
+    app.state.carousel = carousel
+
     print_logo()
     yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 @app.get("/api/setup")
@@ -41,34 +55,37 @@ async def display_config(
     id: str = Header(None, alias="ID"),
     access_token: str = Header(None, alias="Access-Token"),
 ):
-    """Device asks for display content."""
-    logger.info("Creating image URL for device display.")
-    bmp_file = discover_bmp(BASE_DIR)
-    # bmp_file = BARB_BMP
-    base_url = str(request.base_url).rstrip("/")
-    image_url = f"{base_url}/api/image/{bmp_file.name}"
+    """
+    Device asks for display content.
+    Provide the next image URL (carousel.next) and display settings.
+    """
     logger.info(f"Display request from device: {id}, token: {access_token}")
+    logger.info(f"Headers: {dict(request.headers)}")
+    next_image: TRMNLImage = await request.app.state.carousel.next()
 
     return JSONResponse(
         content={
             "status": 0,
-            "image_url": image_url,
-            "filename": bmp_file.stem,
+            "image_url": next_image.image_url,
+            "filename": next_image.filename,
             "update_firmware": False,
             "firmware_url": None,
-            "refresh_rate": REFRESH_INTERVAL,
+            "refresh_rate": settings.refresh_interval,
             "reset_firmware": False,
         }
     )
 
 
 @app.get("/api/image/{filename}")
-async def serve_image(filename: str, background_tasks: BackgroundTasks):
-    """Serve the BMP image."""
+async def serve_image(filename: str):
+    """
+    Serve the BMP image. (carousel.current)
+    """
     logger.info("Serving image to device.")
-    background_tasks.add_task(generate)
-    bmp_file = discover_bmp(BASE_DIR)
-    return FileResponse(bmp_file, media_type="image/bmp")
+    current_image = await app.state.carousel.current()
+    assert filename == current_image.filename + ".bmp", "Filename mismatch!"
+    current_file_path = current_image.path
+    return FileResponse(current_file_path, media_type="image/bmp")
 
 
 @app.post("/api/log")

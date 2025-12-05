@@ -117,5 +117,9 @@ if __name__ == "__main__":
     # run main, but on exit, run generate to refresh the image
     try:
         main()
+    # if ctrl-c is pressed, exit gracefully
+    except KeyboardInterrupt:
+        logger.info("Shutting down server...")
+        generate()
     finally:
         generate()

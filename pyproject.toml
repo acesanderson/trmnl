@@ -17,6 +17,7 @@ dependencies = [
     "pydantic>=2.12.5",
     "rich>=14.2.0",
     "uvicorn>=0.38.0",
+    "xdg-base-dirs>=6.0.2",
 ]
 [tool.hatch.build.targets.wheel]
 packages = ["src/trmnl"]

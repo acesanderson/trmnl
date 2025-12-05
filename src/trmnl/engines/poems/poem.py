@@ -36,7 +36,7 @@ poets = [
 ]
 
 
-def filter_poems(df, authors, min_chars=100, max_chars=800):
+def filter_poems(df, authors, min_chars=100, max_chars=800) -> list[dict[str, str]]:
     mask = (
         df["Poet"].isin(authors)
         & (df["Poem"].str.len() <= max_chars)
@@ -73,7 +73,7 @@ def clean_title(title: str) -> str:
     return " ".join(title.split()).strip()
 
 
-def random_poem() -> dict:
+def random_poem() -> dict[str, str]:
     filtered_poems = filter_poems(df, poets)
     poem = random.choice(filtered_poems)
 
@@ -105,11 +105,3 @@ def random_poem() -> dict:
     logger.info(f"Selected poem: {title} by {poet}")
     logger.info(f"Poem:\n{poem_text}")
     return return_dict
-
-
-if __name__ == "__main__":
-    filtered_poems = filter_poems(df, poets)
-    sample_poem = random_poem()
-    print(sample_poem["title"] + " by " + sample_poem["poet"])
-    print("\n")
-    print(sample_poem["poem"])

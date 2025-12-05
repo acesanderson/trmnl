@@ -1,24 +1,14 @@
 from playwright.sync_api import sync_playwright
-from trmnl.poems.poem import random_poem
 from PIL import Image
 import io
 import logging
-import uuid
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-DIR_PATH = Path(__file__).parent.resolve()
 
-
-def delete_all_bmp():
-    bmp_files = DIR_PATH.glob("*.bmp")
-    for bmp_file in bmp_files:
-        bmp_file.unlink()
-    logger.info("Deleted all existing BMP files.")
-
-
-def html_to_bmp(html_content: str, output_filename: str = "current.bmp"):
+def generate_bmp_from_html(html_content: str, output_filename: str | Path) -> Path:
+    logger.info(f"Generating {output_filename} from HTML content.")
     # 1. Inject TRMNL-specific CSS reset to ensure exact 800x480 sizing
     full_html = f"""
     <!DOCTYPE html>
@@ -54,34 +44,5 @@ def html_to_bmp(html_content: str, output_filename: str = "current.bmp"):
     # If you wanted threshold (solid black/white), you would use .convert("1", dither=Image.NONE)
     final_bmp = image.convert("1")
 
-    delete_all_bmp()
     final_bmp.save(output_filename)
-    print(f"Generated {output_filename}")
-
-
-def render_poem(title: str, poem: str, poet: str):
-    # Simple HTML template for poem rendering
-    # Replace newlines with <br> for HTML formatting
-    poem_text = poem.replace("\n", "<br>")
-    poem_html = f"""
-    <div style="display: flex; justify-content: center; align-items: center; height: 80%; flex-direction: column;">
-        <h1 style="font-size: 60x; margin: 0;">{title.upper()}</h3>
-        <h2 style="font-size: 40x; margin: 0;">by {poet}</h3>
-        <p>{poem_text}</p>
-    </div>
-    """
-    output_filename = f"poem_{uuid.uuid4().hex}.bmp"
-    html_to_bmp(poem_html, output_filename)
-
-
-def generate():
-    logger.info("Generating new poem image...")
-    poem_object = random_poem()
-    title = poem_object["title"]
-    poem = poem_object["poem"]
-    poet = poem_object["poet"]
-    render_poem(title, poem, poet)
-
-
-if __name__ == "__main__":
-    generate()
+    return Path(output_filename)

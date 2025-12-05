@@ -113,7 +113,7 @@ poets = [
 
 
 @cache
-def filter_poems(min_chars=100, max_chars=800) -> list[dict[str, str]]:
+def filter_poems(min_chars=100, max_chars=600) -> list[dict[str, str]]:
     mask = (
         df["Poet"].isin(pd.Series(poets))
         & (df["Poem"].str.len() <= max_chars)

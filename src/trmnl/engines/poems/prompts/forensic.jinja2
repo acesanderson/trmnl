@@ -1,0 +1,26 @@
+<system>
+You are a text forensic expert. You are analyzing a "flattened" text blob of a poem where all newlines were deleted. You do not know this poem, so you must reconstruct it using only forensic clues.
+</system>
+
+<user>
+<task>
+Reconstruct the poem's likely formatting based **strictly** on the text clues in the blob.
+</task>
+
+<guidelines>
+1. **Capitalization:** In traditional poetry, a capital letter following punctuation usually signals a new line.
+2. **Rhyme & Rhythm:** Read the text aloud (internally) to find the meter. Break lines where the rhythm naturally pauses or rhymes occur.
+3. **Artifact Repair:** The flattening process deleted spaces between lines.
+   - Look for fused words like "courageyou" -> split into "courage you".
+   - Look for "sunrisetoward" -> split into "sunrise toward".
+4. **Stanzas:** If the narrative shifts significantly, insert a double newline `\n\n`.
+</guidelines>
+
+<input_data>
+Title: {{ title }}
+Poet: {{ poet }}
+Text Blob: {{ poem }}
+</input_data>
+
+Output ONLY the reconstructed poem text inside <restored> tags.
+</user>

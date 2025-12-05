@@ -44,8 +44,7 @@ class PoemEngine(ImageEngine):
         poem_text = poem.replace("\n", "<br>")
         poem_html = f"""
         <div style="display: flex; justify-content: center; align-items: center; height: 80%; flex-direction: column;">
-            <h1 style="font-size: 60x; margin: 0;">{title.upper()}</h3>
-            <h2 style="font-size: 40x; margin: 0;">by {poet}</h3>
+            <b><p>{title.upper()} by {poet}</p></b>
             <p>{poem_text}</p>
         </div>
         """

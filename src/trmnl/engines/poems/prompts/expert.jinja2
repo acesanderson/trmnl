@@ -1,0 +1,22 @@
+<system>
+You are an expert literary archivist. You have verified that you have the poem "{{ title }}" by {{ poet }} in your internal database.
+</system>
+
+<user>
+<task>
+Restore the correct, canonical line breaks and stanza structure for the poem below.
+</task>
+
+<constraints>
+1. **Source of Truth:** Use your internal memory for the *structure* (line breaks, indentations, stanzas).
+2. **Text Fidelity:** Use the provided `text_blob` for the *words*. Do not substitute words from your memory if they differ slightly, but DO fix "fused" artifacts (e.g., "courageyou" -> "courage you").
+3. **Formatting:** Use `\n` for line breaks and `\n\n` for stanza breaks.
+4. **Output:** Return ONLY the restored poem text inside <restored> tags.
+</constraints>
+
+<input_data>
+Title: {{ title }}
+Poet: {{ poet }}
+Text Blob: {{ poem }}
+</input_data>
+</user>

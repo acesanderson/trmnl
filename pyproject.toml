@@ -1,13 +1,15 @@
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
 [project]
 name = "trmnl"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
+    "conduit",
     "fastapi>=0.123.5",
     "kagglehub>=0.3.13",
     "lorem>=0.1.1",
@@ -19,11 +21,16 @@ dependencies = [
     "uvicorn>=0.38.0",
     "xdg-base-dirs>=6.0.2",
 ]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/trmnl"]
 sources = ["src"]
+
 [tool.hatch.build.targets.sdist]
 include = ["src/trmnl/py.typed"]
+
+[tool.uv.sources]
+conduit = { path = "../conduit-project", editable = true }
 
 [project.scripts]
 trmnl = "trmnl.main:main"

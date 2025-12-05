@@ -40,4 +40,7 @@ async def generate_bmp_from_html(
     final_bmp = image.convert("1")
     final_bmp.save(output_filename)
 
-    return Path(output_filename)
+    output_path = Path(output_filename)
+    if not output_path.exists():
+        raise RuntimeError(f"Failed to create BMP file at {output_filename}")
+    return output_path

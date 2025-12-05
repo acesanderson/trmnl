@@ -73,6 +73,7 @@ def clean_title(title: str) -> str:
 
 
 async def random_poem() -> dict[str, str]:
+    logger.info("Selecting a random poem from the dataset.")
     filtered_poems = filter_poems()
     poem = random.choice(filtered_poems)
     poem_text = clean_poem_text(poem["poem"])
@@ -83,6 +84,4 @@ async def random_poem() -> dict[str, str]:
         "poet": poet.strip(),
         "poem": poem_text.strip(),
     }
-    logger.info(f"Selected poem: {title} by {poet}")
-    logger.info(f"Poem:\n{poem_text}")
     return return_dict

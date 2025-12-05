@@ -8,6 +8,7 @@ from pathlib import Path
 import random
 import logging
 from functools import cache
+from Levenshtein import distance
 
 logger = logging.getLogger(__name__)
 
@@ -18,19 +19,96 @@ dataset = Path(
 df = pd.read_csv(dataset)
 
 poets = [
-    "William Carlos Williams",
-    "Ezra Pound",
-    "T. S. Eliot",
-    "Elizabeth Bishop",
-    "H.D.",
-    "Marianne Moore",
-    "Philip Larkin",
-    "William Butler Yeats",
-    "Wallace Stevens",
+    "Alexander Pope",
+    "Alfred, Lord Tennyson",
+    "Algernon Charles Swinburne",
+    "Andrew Marvell",
+    "Anna Lætitia Barbauld",
+    "Anne Carson",
+    "Anne Sexton",
+    "Annie Finch",
+    "Aphra Behn",
+    "Basil Bunting",
+    "Ben Jonson",
+    "Carl Phillips",
+    "Charlotte Smith",
+    "Christina Rossetti",
+    "Christopher Marlowe",
+    "Claudia Rankine",
+    "D. H. Lawrence",
+    "Dante Gabriel Rossetti",
     "Dylan Thomas",
-    "Ted Hughes",
+    "E. E. Cummings",
+    "Edith Sitwell",
+    "Edmund Spenser",
+    "Elizabeth Barrett Browning",
+    "Elizabeth Bishop",
+    "Emily Brontë",
+    "Emily Dickinson",
+    "Ezra Pound",
+    "Frank Bidart",
+    "Franz Wright",
+    "Galway Kinnell",
+    "Geoffrey Hill",
+    "George Herbert",
+    "Gerard Manley Hopkins",
+    "H. D.",
+    "Hart Crane",
+    "Henry Vaughan",
+    "James Wright",
+    "Jean Valentine",
+    "John Berryman",
+    "John Clare",
+    "John Donne",
+    "John Dryden",
+    "John Keats",
+    "John Milton",
+    "Jonathan Swift",
+    "Jorie Graham",
+    "Larry Levis",
+    "Leigh Hunt",
+    "Letitia Elizabeth Landon",
+    "Louise Glück",
+    "Lucie Brock-Broido",
+    "Marianne Moore",
+    "Mary Robinson",
+    "Matthew Arnold",
+    "Mina Loy",
+    "Monica Youn",
+    "Natalie Diaz",
+    "Ocean Vuong",
+    "Oliver Goldsmith",
+    "Paul Celan",
+    "Percy Bysshe Shelley",
+    "Philip Larkin",
+    "R. S. Thomas",
+    "Rainer Maria Rilke",
+    "Richard Crashaw",
+    "Robert Browning",
+    "Robert Burns",
     "Robert Graves",
-    "D.H. Lawrence",
+    "Robert Herrick",
+    "Robert Lowell",
+    "Robert Southey",
+    "Samuel Johnson",
+    "Samuel Taylor Coleridge",
+    "Sir Philip Sidney",
+    "Sir Walter Scott",
+    "Sylvia Plath",
+    "T. S. Eliot",
+    "Thomas Carew",
+    "Thomas Gray",
+    "Thomas Hardy",
+    "Thomas Moore",
+    "W. S. Merwin",
+    "Wallace Stevens",
+    "William Blake",
+    "William Butler Yeats",
+    "William Carlos Williams",
+    "William Collins",
+    "William Cowper",
+    "William Shakespeare",
+    "William Wordsworth",
 ]
 
 
@@ -66,3 +144,68 @@ async def random_poem() -> dict[str, str]:
         "poem": poem_text.strip(),
     }
     return return_dict
+
+
+def fuzzy_match(
+    target_poets: list[str],
+    dataset_poets: list[str],
+    threshold: int = 5,
+) -> dict[str, list[tuple[str, int]]]:
+    """
+    Match target poets against dataset poets using Levenshtein distance.
+
+    Returns dict mapping each target poet to list of (candidate, distance) tuples
+    sorted by distance, filtered by threshold.
+    """
+    results = {}
+    for target in target_poets:
+        target_lower = target.lower()
+        matches = []
+        for candidate in dataset_poets:
+            d = distance(target_lower, candidate.lower())
+            if d <= threshold:
+                matches.append((candidate, d))
+        matches.sort(key=lambda x: x[1])
+        results[target] = matches
+    return results
+
+
+def best_match(
+    target_poets: list[str],
+    dataset_poets: list[str],
+) -> dict[str, tuple[str, int] | None]:
+    """Return only the best match for each target poet."""
+    results = {}
+    for target in target_poets:
+        target_lower = target.lower()
+        best = None
+        best_dist = float("inf")
+        for candidate in dataset_poets:
+            d = distance(target_lower, candidate.lower())
+            if d < best_dist:
+                best = candidate
+                best_dist = d
+        results[target] = (best, best_dist) if best else None
+    return results
+
+
+def identify_missing_poets():
+    """
+    Identify poets from poet_list that are not present in dataset_df.
+    Prints the number of missing poets and their fuzzy matches.
+    """
+    # Find all the poets from our list who are NOT in the dataset
+    missing_poets = [poet for poet in poets if poet not in df["Poet"].unique()]
+    target = missing_poets
+    print(f"MISSING POETS: {len(missing_poets)}")
+
+    # Example usage
+    dataset = df["Poet"].unique().tolist()
+
+    print("All matches within threshold:")
+    for poet, matches in fuzzy_match(target, dataset).items():
+        print(f"  {poet}: {matches}")
+
+    print("\nBest matches:")
+    for poet, match in best_match(target, dataset).items():
+        print(f"  {poet} -> {match}")

@@ -1,5 +1,5 @@
 from conduit.prompt.prompt_loader import PromptLoader
-from conduit.remote import RemoteModel, Response
+from conduit.remote import RemoteModel, Response, Verbosity
 from pathlib import Path
 from pydantic import BaseModel
 from typing import Literal
@@ -51,33 +51,33 @@ def clean_title(title: str) -> str:
 
 
 # LLM-based processing
-def _restore_poem(poem: Poem) -> str:
+def _restore_poem(poem: Poem, verbose: Verbosity) -> str:
     """
     If LLM knows the poem, it will restore it.
     """
     prompt = pl["expert"]
     rendered = prompt.render(input_variables=poem.model_dump())
-    response = model.query(rendered)
+    response = model.query(rendered, verbose=verbose)
     assert isinstance(response, Response)
     return str(response.content)
 
 
-def _reconstruct_poem(poem: Poem) -> str:
+def _reconstruct_poem(poem: Poem, verbose: Verbosity) -> str:
     """
     If LLM doesn't know the poem, it use its judgment. (Lord help us.)
     """
     logger.info("Reconstructing poem.")
     prompt = pl["forensic"]
     rendered = prompt.render(input_variables=poem.model_dump())
-    response = model.query(rendered)
+    response = model.query(rendered, verbose=verbose)
     assert isinstance(response, Response)
     return str(response.content)
 
 
-def _route_poem(poem: Poem) -> Literal["restore", "reconstruct"]:
+def _route_poem(poem: Poem, verbose: Verbosity) -> Literal["restore", "reconstruct"]:
     prompt = pl["route"]
     rendered = prompt.render(input_variables=poem.model_dump())
-    response = model.query(rendered)
+    response = model.query(rendered, verbose=verbose)
     assert isinstance(response, Response)
     response_string = str(response.content).strip().lower()
     if response_string == "no":
@@ -109,15 +109,15 @@ def _needs_restoration(text: str) -> bool:
     return False
 
 
-def process_poem(poem: Poem) -> str | None:
+def process_poem(poem: Poem, verbose: Verbosity = Verbosity.PROGRESS) -> str | None:
     # See if we need it
     if not _needs_restoration(poem.poem):
         return
     logger.info("Poem needs restoration/reconstruction.")
     # Poem is janky! Let's fix it.
-    route = _route_poem(poem)
+    route = _route_poem(poem, verbose)
     match route:
         case "restore":
-            return _restore_poem(poem)
+            return _restore_poem(poem, verbose)
         case "reconstruct":
-            return _reconstruct_poem(poem)
+            return _reconstruct_poem(poem, verbose)

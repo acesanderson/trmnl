@@ -9,6 +9,9 @@ import random
 import logging
 from functools import cache
 from Levenshtein import distance
+from typing import Literal
+
+MODE: Literal["curated", "all"] = "all"
 
 logger = logging.getLogger(__name__)
 
@@ -114,11 +117,14 @@ poets = [
 
 @cache
 def filter_poems(min_chars=100, max_chars=600) -> list[dict[str, str]]:
-    mask = (
-        df["Poet"].isin(pd.Series(poets))
-        & (df["Poem"].str.len() <= max_chars)
-        & (df["Poem"].str.len() >= min_chars)
-    )
+    if MODE == "curated":
+        mask = (
+            df["Poet"].isin(pd.Series(poets))
+            & (df["Poem"].str.len() <= max_chars)
+            & (df["Poem"].str.len() >= min_chars)
+        )
+    elif MODE == "all":
+        mask = (df["Poem"].str.len() <= max_chars) & (df["Poem"].str.len() >= min_chars)
     filtered = df.loc[mask, ["Poet", "Poem", "Title"]]
     return filtered.rename(
         columns={"Poet": "poet", "Poem": "poem", "Title": "title"}

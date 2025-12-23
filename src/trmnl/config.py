@@ -43,7 +43,7 @@ def load_settings() -> Settings:
             "CURRENT_IMAGE_DIR": CURRENT_IMAGE_DIR,
         },
         default_engine=default_engine,
-        refresh_interval=30,
+        refresh_interval=60,
         server_ip="10.0.0.82",
         port=8070,
     )

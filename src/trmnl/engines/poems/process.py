@@ -1,5 +1,5 @@
-from conduit.prompt.prompt_loader import PromptLoader
-from conduit.remote import RemoteModel, Response, Verbosity
+from conduit.core.prompt.prompt_loader import PromptLoader
+from conduit.remote import RemoteModel, Verbosity
 from pathlib import Path
 from pydantic import BaseModel
 from typing import Literal

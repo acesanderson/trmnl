@@ -14,3 +14,4 @@ __pycache__/
 .venv
 uv.lock
 *.bmp
+test_output/

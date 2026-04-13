@@ -16,7 +16,7 @@ import io
 import logging
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageOps
 from rich.console import Console
 
 from trmnl.config import settings
@@ -57,7 +57,7 @@ async def _generate_one(slug: str, prompt: str) -> bool:
 
     image_data = base64.b64decode(images[0].b64_json)
     image = Image.open(io.BytesIO(image_data))
-    image = image.resize((800, 480))
+    image = ImageOps.pad(image, (800, 480), color=(0, 0, 0))
     bmp = image.convert("1")
     bmp.save(tmp_path)
     tmp_path.rename(output_path)

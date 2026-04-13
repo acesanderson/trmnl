@@ -10,7 +10,7 @@ import base64
 import io
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 OUTPUT_DIR = Path(__file__).parent.parent / "test_output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -70,7 +70,7 @@ async def generate_variant(index: int, label: str, preamble: str) -> Path:
 
     image_data = base64.b64decode(images[0].b64_json)
     image = Image.open(io.BytesIO(image_data))
-    image = image.resize((800, 480))
+    image = ImageOps.pad(image, (800, 480), color=(0, 0, 0))
     bmp = image.convert("1")
     output_path = OUTPUT_DIR / f"test_{index}_{label}.bmp"
     bmp.save(output_path)

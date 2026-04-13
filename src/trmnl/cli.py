@@ -6,16 +6,25 @@ import sys
 
 import httpx
 
-SERVER_URL = os.environ.get("TRMNL_SERVER_URL", "http://caruana:8070")
+TRMNL_PORT = 8070
+
+
+def _resolve_server_url() -> str:
+    if url := os.environ.get("TRMNL_SERVER_URL"):
+        return url
+    from dbclients.discovery.host import get_network_context
+    ctx = get_network_context()
+    return f"http://{ctx.preferred_host}:{TRMNL_PORT}"
 
 
 def _get(path: str) -> dict:
+    url = _resolve_server_url()
     try:
-        resp = httpx.get(f"{SERVER_URL}{path}", timeout=5.0)
+        resp = httpx.get(f"{url}{path}", timeout=5.0)
         resp.raise_for_status()
         return resp.json()
     except httpx.ConnectError:
-        print(f"Could not connect to TRMNL server at {SERVER_URL}. Is the service running?")
+        print(f"Could not connect to TRMNL server at {url}. Is the service running?")
         sys.exit(1)
     except httpx.HTTPStatusError as e:
         print(f"Error {e.response.status_code}: {e.response.json().get('error', str(e))}")
@@ -23,12 +32,13 @@ def _get(path: str) -> dict:
 
 
 def _post(path: str, body: dict) -> dict:
+    url = _resolve_server_url()
     try:
-        resp = httpx.post(f"{SERVER_URL}{path}", json=body, timeout=5.0)
+        resp = httpx.post(f"{url}{path}", json=body, timeout=5.0)
         resp.raise_for_status()
         return resp.json()
     except httpx.ConnectError:
-        print(f"Could not connect to TRMNL server at {SERVER_URL}. Is the service running?")
+        print(f"Could not connect to TRMNL server at {url}. Is the service running?")
         sys.exit(1)
     except httpx.HTTPStatusError as e:
         print(f"Error {e.response.status_code}: {e.response.json().get('error', str(e))}")
@@ -90,6 +100,10 @@ def main() -> None:
         metavar="ENGINE",
         help="Ordered sequence for mix mode, e.g. --sequence poem poem fantasy",
     )
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(0)
 
     args = parser.parse_args()
     {

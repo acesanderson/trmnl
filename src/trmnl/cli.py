@@ -61,6 +61,9 @@ def cmd_list(_args: argparse.Namespace) -> None:
 
 
 def cmd_engine(args: argparse.Namespace) -> None:
+    if args.name is None:
+        cmd_list(args)
+        return
     body: dict = {"engine": args.name}
     if args.name == "mix":
         if args.sequence:
@@ -92,8 +95,8 @@ def main() -> None:
     sub.add_parser("next", help="Force carousel to advance")
     sub.add_parser("reload", help="Re-read config.yaml and apply without restart")
 
-    p_engine = sub.add_parser("engine", help="Switch active engine")
-    p_engine.add_argument("name", help="Engine name: poem, fantasy, or mix")
+    p_engine = sub.add_parser("engine", help="Switch active engine (no arg = list engines)")
+    p_engine.add_argument("name", nargs="?", default=None, help="Engine name: poem, fantasy, or mix")
     p_engine.add_argument(
         "--sequence",
         nargs="+",

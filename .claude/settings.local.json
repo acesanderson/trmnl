@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash:*)",
+      "Read(//Users/bianders/Brian_Code/headwater/scripts/**)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git worktree:*)",
+      "Bash(mkdir -p ~/.config/superpowers/worktrees/trmnl-project/feature)",
+      "Bash(ln -sf /Users/bianders/Brian_Code/conduit-project ~/.config/superpowers/worktrees/trmnl-project/feature/conduit-project)",
+      "Bash(git checkout:*)",
+      "Bash(python3:*)",
+      "Bash(TRMNL_SKIP_HOST_CHECK=1 uv run pytest tests/test_router.py -v)",
+      "Bash(TRMNL_SKIP_HOST_CHECK=1 uv run:*)",
+      "Bash(git remote:*)",
+      "Bash(chmod +x:*)",
+      "Bash(conduit query:*)",
+      "Bash(git pull:*)",
+      "Bash(git merge:*)",
+      "Bash(git branch:*)"
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+<h2>Which image generation APIs do you have access to?</h2>
+<p class="subtitle">This determines what's available for the fantasy engine. Select all that apply.</p>
+
+<div class="options" data-multiselect>
+  <div class="option" data-choice="openai" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>OpenAI gpt-image-1 / DALL-E 3</h3>
+      <p>High quality, 1024×1024 or 1792×1024. Good prompt adherence. Resizes to 800×480 cleanly.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="stability" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Stability AI (Stable Diffusion)</h3>
+      <p>Supports custom dimensions — can target 800×480 natively. Various models (SDXL, SD3, etc.).</p>
+    </div>
+  </div>
+  <div class="option" data-choice="replicate" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Replicate</h3>
+      <p>Access to many open models (Flux, SDXL, etc.). Flexible sizing. Pay per run.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="other" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>Something else / not sure yet</h3>
+      <p>We can decide as part of the design.</p>
+    </div>
+  </div>
+</div>

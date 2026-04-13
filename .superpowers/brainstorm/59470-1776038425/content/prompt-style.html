@@ -1,0 +1,33 @@
+<h2>What artistic style should the image gen prompt target?</h2>
+<p class="subtitle">E-ink 1-bit dithering destroys photorealistic images. High-contrast illustration styles survive best. Which direction?</p>
+
+<div class="options">
+  <div class="option" data-choice="woodcut" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Woodcut / Engraving</h3>
+      <p>Explicit prompt guidance: "woodcut print", "etching", "linocut". Bold black lines, crosshatching, no gradients. Looks intentionally period-correct on e-ink. Best for fantasy themes.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="ink" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Ink Illustration / Pen-and-Ink</h3>
+      <p>"Pen and ink illustration", "ink wash", "black and white manga". High contrast, defined outlines. More flexible — characters, landscapes, architecture all work.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="silhouette" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Silhouette / Graphic</h3>
+      <p>Solid black silhouettes against white (or vice versa). Stark, dramatic. No detail to lose in dithering. Skyline, landscape, creature profiles.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="experiment" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>Let the spec define a testing phase</h3>
+      <p>Don't commit to one style — build in an experiment step where we generate 3-4 samples with different style prompts, convert to BMP, and pick what looks best on the actual hardware.</p>
+    </div>
+  </div>
+</div>

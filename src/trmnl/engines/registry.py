@@ -14,8 +14,10 @@ def get_engine_registry() -> dict[str, type[ImageEngine]]:
     """
     from trmnl.engines.poems.engine import PoemEngine
     from trmnl.engines.fantasy.engine import FantasyEngine
+    from trmnl.engines.illustration.engine import IllustrationEngine
 
     return {
         "poem": PoemEngine,
         "fantasy": FantasyEngine,
+        "illustration": IllustrationEngine,
     }

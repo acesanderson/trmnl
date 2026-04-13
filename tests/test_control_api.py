@@ -27,8 +27,9 @@ def client():
     with patch("trmnl.app.build_engine_from_config", return_value=(mock_engine, "fantasy", [])):
         with patch("trmnl.app.Carousel", return_value=mock_carousel):
             with patch("trmnl.app.EngineRouter", return_value=router):
-                with TestClient(app, raise_server_exceptions=True) as tc:
-                    yield tc
+                with patch("trmnl.control._write_config"):
+                    with TestClient(app, raise_server_exceptions=True) as tc:
+                        yield tc
 
 
 def test_status_returns_engine_info(client):

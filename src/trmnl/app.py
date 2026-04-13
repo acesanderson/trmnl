@@ -4,6 +4,7 @@ from trmnl.config import settings, build_engine_from_config
 from trmnl.logo import print_logo
 from trmnl.carousel import Carousel, TRMNLImage
 from trmnl.engines.router import EngineRouter
+from trmnl.control import router as control_router
 from fastapi import FastAPI, Header, Request
 from fastapi.responses import FileResponse, JSONResponse
 from contextlib import asynccontextmanager
@@ -35,7 +36,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 # Mount admin control router
-from trmnl.control import router as control_router
 app.include_router(control_router)
 
 

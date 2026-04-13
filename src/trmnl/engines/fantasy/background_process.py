@@ -59,7 +59,7 @@ async def _generate_one(slug: str, prompt: str) -> bool:
     image = Image.open(io.BytesIO(image_data))
     image = ImageOps.pad(image, (800, 480), color=(0, 0, 0))
     bmp = image.convert("1")
-    bmp.save(tmp_path)
+    bmp.save(tmp_path, format="BMP")
     tmp_path.rename(output_path)
 
     size = output_path.stat().st_size

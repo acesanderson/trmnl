@@ -1,3 +1,5 @@
+import os
+import socket
 import uvicorn
 from uvicorn.config import LOGGING_CONFIG
 import logging.config
@@ -5,9 +7,15 @@ from pathlib import Path
 
 
 BASE_DIR = Path(__file__).resolve().parent
+EXPECTED_HOSTNAME = "caruana"
 
 
 def main():
+    if not os.getenv("TRMNL_SKIP_HOST_CHECK") and socket.gethostname() != EXPECTED_HOSTNAME:
+        raise EnvironmentError(
+            f"You are not on the trmnl server host (you should be on {EXPECTED_HOSTNAME})."
+        )
+
     log_config = LOGGING_CONFIG.copy()
     log_config["loggers"]["trmnl"] = {
         "handlers": ["default"],  # same handler as uvicorn.error

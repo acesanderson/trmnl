@@ -5,7 +5,7 @@ Run this to process poems. These are cached on Headwater server, so this frontlo
 from trmnl.engines.poems.process import process_poem, Poem
 from trmnl.engines.poems.poem import filter_poems
 from rich.console import Console
-from conduit.progress.verbosity import Verbosity
+from conduit.utils.progress.verbosity import Verbosity
 
 VERBOSITY = Verbosity.SILENT
 console = Console()

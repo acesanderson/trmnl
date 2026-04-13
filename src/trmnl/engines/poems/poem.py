@@ -137,7 +137,7 @@ async def random_poem() -> dict[str, str]:
     poem_dict = random.choice(filtered_poems)
     poem_obj = Poem(**poem_dict)
     poem_text = ""
-    new_poem_text = process_poem(poem_obj)
+    new_poem_text = await process_poem(poem_obj)
     if new_poem_text:
         poem_text = new_poem_text
     else:

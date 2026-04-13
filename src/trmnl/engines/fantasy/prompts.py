@@ -2,9 +2,8 @@
 from __future__ import annotations
 
 STYLE_PREAMBLE = (
-    "Albrecht Dürer woodcut engraving style, black and white only, "
-    "fine crosshatching, stark contrast, dramatic chiaroscuro, no color, "
-    "no gradients, 16th century German Renaissance printmaking aesthetic —"
+    "Gustave Doré engraving style, black and white only, fine crosshatching, "
+    "high drama, detailed linework, no color, no gradients —"
 )
 
 PROMPTS: list[dict[str, str]] = [

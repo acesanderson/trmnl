@@ -1,10 +1,10 @@
 # src/trmnl/engines/router.py
 from __future__ import annotations
-from pathlib import Path
 import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from pathlib import Path
     from trmnl.carousel import ImageEngine
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,10 @@ class MixEngine:
         engine = self.engines[self._index]
         current = self._index
         self._index = (self._index + 1) % len(self.engines)
-        logger.debug(f"MixEngine: index {current} → {self._index}")
+        # Note: _index is not concurrency-safe in a concurrent async context.
+        # Two concurrent callers could read the same index before either increments it.
+        # This is fine for the single-consumer use case here.
+        logger.debug(f"MixEngine: index {current} -> {self._index}")
         return await engine.next()
 
 

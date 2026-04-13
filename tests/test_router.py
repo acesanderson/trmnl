@@ -36,14 +36,18 @@ def test_mix_engine_empty_raises():
 @pytest.mark.asyncio
 async def test_engine_router_tracks_last_served():
     mock_engine = MagicMock()
-    mock_engine.next = AsyncMock(return_value=Path("/served.bmp"))
+    mock_engine.next = AsyncMock(side_effect=[Path("/first.bmp"), Path("/second.bmp")])
 
     router = EngineRouter(mock_engine, "poem", [])
     assert router.last_served is None
 
     path = await router.next()
-    assert path == Path("/served.bmp")
-    assert router.last_served == Path("/served.bmp")
+    assert path == Path("/first.bmp")
+    assert router.last_served == Path("/first.bmp")
+
+    path2 = await router.next()
+    assert path2 == Path("/second.bmp")
+    assert router.last_served == Path("/second.bmp")
 
 
 def test_engine_router_set_engine_updates_state():

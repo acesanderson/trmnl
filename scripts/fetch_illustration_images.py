@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # scripts/fetch_illustration_images.py
 """
-Fetch ~20 illustration images per artist using Brave web search + Wikimedia Commons API.
+Fetch ~20 illustration images per artist using Wikimedia Commons category API
+and Brave web search as a fallback for artists with limited Commons coverage.
 
 Saves images to /tmp/trmnl_illustrations/<artist_slug>/
 Writes manifest to /tmp/trmnl_illustrations/manifest.json
@@ -10,7 +11,7 @@ Usage:
     uv run python scripts/fetch_illustration_images.py
 
 Requires:
-    - BRAVE_API_KEY env var
+    - BRAVE_API_KEY env var (only needed for Gorey/Escher fallback)
     - ~/.claude/skills/brave-web-search installed
 """
 from __future__ import annotations
@@ -34,53 +35,66 @@ SEARCH_SKILL = Path.home() / ".claude" / "skills" / "brave-web-search"
 OUTPUT_DIR = Path("/tmp/trmnl_illustrations")
 MANIFEST_PATH = OUTPUT_DIR / "manifest.json"
 IMAGES_PER_ARTIST = 20
-REQUEST_DELAY = 0.8
+REQUEST_DELAY = 0.4
+COMMONS_API = "https://commons.wikimedia.org/w/api.php"
+USER_AGENT = "trmnl-illustration-curator/1.0 (github.com/acesanderson/trmnl; brian@example.com) Python/3"
 
+# Artists with known Commons categories for their actual artwork.
+# Gorey (d.2000) and Escher (d.1972, estate active) have minimal PD content on
+# Commons — they rely on brave-web-search for supplemental images.
 ARTISTS: list[dict] = [
     {
         "name": "Aubrey Beardsley",
         "slug": "beardsley",
-        "queries": [
-            "Aubrey Beardsley illustration site:commons.wikimedia.org",
-            "Aubrey Beardsley art nouveau ink drawing public domain wikimedia",
+        # Beardsley died 1898 — extensively catalogued on Commons
+        "commons_categories": [
+            "Illustrations by Aubrey Beardsley",
+            "Works by Aubrey Beardsley",
         ],
-        "commons_search": "Aubrey Beardsley",
+        "brave_queries": [],
     },
     {
         "name": "Edward Gorey",
         "slug": "gorey",
-        "queries": [
-            "Edward Gorey illustration site:commons.wikimedia.org",
-            "Edward Gorey crosshatching black white drawing public domain",
+        # Died 2000 — most work under copyright; Commons has very little
+        "commons_categories": [],
+        "brave_queries": [
+            "Edward Gorey illustration drawing site:commons.wikimedia.org",
+            "Edward Gorey crosshatching black white art public domain",
+            "Edward Gorey illustration filetype:jpg",
         ],
-        "commons_search": "Edward Gorey",
     },
     {
         "name": "Kathe Kollwitz",
         "slug": "kollwitz",
-        "queries": [
-            "Kathe Kollwitz etching site:commons.wikimedia.org",
-            "Kollwitz printmaking charcoal expressionist public domain wikimedia",
+        # Died 1945 — PD in most countries since 2015
+        "commons_categories": [
+            "Works by Käthe Kollwitz",
+            "Prints by Käthe Kollwitz",
         ],
-        "commons_search": "Käthe Kollwitz",
+        "brave_queries": [],
     },
     {
         "name": "Franz Masereel",
         "slug": "masereel",
-        "queries": [
-            "Franz Masereel woodcut site:commons.wikimedia.org",
-            "Franz Masereel black white woodcut public domain wikimedia",
+        # Died 1972 — pre-1928 woodcut novels are PD in the US
+        "commons_categories": [
+            "Works by Frans Masereel",
+            "Woodcuts by Frans Masereel",
         ],
-        "commons_search": "Franz Masereel",
+        "brave_queries": [],
     },
     {
         "name": "MC Escher",
         "slug": "escher",
-        "queries": [
-            "MC Escher lithograph site:commons.wikimedia.org",
-            "Escher mathematical impossible figure public domain wikimedia",
+        # Died 1972 — estate actively enforces; sparse on Commons
+        "commons_categories": [
+            "Works by M. C. Escher",
         ],
-        "commons_search": "M.C. Escher",
+        "brave_queries": [
+            "MC Escher lithograph woodcut site:commons.wikimedia.org",
+            "Escher mathematical art impossible figure public domain",
+        ],
     },
 ]
 
@@ -88,8 +102,124 @@ IMAGE_MIMES = {"image/jpeg", "image/png", "image/gif"}
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".gif")
 
 
+# ---------------------------------------------------------------------------
+# Wikimedia Commons helpers
+# ---------------------------------------------------------------------------
+
+def _commons_get(params: dict) -> dict:
+    """Single Commons API call, returns parsed JSON or {}."""
+    url = COMMONS_API + "?" + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            return json.loads(resp.read())
+    except Exception as e:
+        logger.debug(f"Commons API error: {e}")
+        return {}
+
+
+def fetch_category_file_titles(category: str, limit: int = 100) -> list[str]:
+    """Return file titles (e.g. 'File:Foo.jpg') from a Commons category."""
+    titles: list[str] = []
+    params: dict = {
+        "action": "query",
+        "list": "categorymembers",
+        "cmtitle": f"Category:{category}",
+        "cmtype": "file",
+        "cmprop": "title",
+        "cmlimit": str(min(limit, 500)),
+        "format": "json",
+    }
+    while len(titles) < limit:
+        data = _commons_get(params)
+        members = data.get("query", {}).get("categorymembers", [])
+        for m in members:
+            t = m.get("title", "")
+            if t:
+                titles.append(t)
+        cont = data.get("continue", {}).get("cmcontinue")
+        if not cont or len(titles) >= limit:
+            break
+        params["cmcontinue"] = cont
+        time.sleep(0.2)
+    return titles[:limit]
+
+
+def titles_to_image_urls(titles: list[str]) -> list[str]:
+    """Batch-resolve file titles to thumbnail URLs via imageinfo.
+
+    Uses iiurlwidth=1200 to request a cached thumbnail — Wikimedia rate-limits
+    raw full-resolution downloads (HTTP 429) but serves cached thumbnail sizes freely.
+    """
+    if not titles:
+        return []
+    urls: list[str] = []
+    # API allows up to 50 titles per request
+    for i in range(0, len(titles), 50):
+        batch = titles[i : i + 50]
+        params = {
+            "action": "query",
+            "titles": "|".join(batch),
+            "prop": "imageinfo",
+            "iiprop": "url|mime|thumburl",
+            "iiurlwidth": "800",  # exact display width; smaller = faster; cached size
+            "format": "json",
+        }
+        data = _commons_get(params)
+        for page in data.get("query", {}).get("pages", {}).values():
+            info = page.get("imageinfo", [{}])
+            if info:
+                mime = info[0].get("mime", "")
+                # Prefer thumburl (rate-limit-safe), fall back to url
+                url = info[0].get("thumburl") or info[0].get("url", "")
+                if url and mime in IMAGE_MIMES:
+                    urls.append(url)
+        time.sleep(0.3)
+    return urls
+
+
+def fetch_category_image_urls(category: str, limit: int = 60) -> list[str]:
+    """Full pipeline: category → file titles → image URLs."""
+    logger.info(f"  Category '{category}'...")
+    titles = fetch_category_file_titles(category, limit=limit)
+    if not titles:
+        logger.info(f"    (empty or not found)")
+        return []
+    logger.info(f"    {len(titles)} file titles, resolving URLs...")
+    urls = titles_to_image_urls(titles)
+    logger.info(f"    {len(urls)} image URLs")
+    return urls
+
+
+def wikimedia_file_page_to_image_url(file_page_url: str) -> str | None:
+    """Resolve a Commons file page URL to a direct image URL."""
+    if "/wiki/File:" not in file_page_url:
+        return None
+    raw = file_page_url.split("/wiki/File:")[-1].split("?")[0]
+    title = "File:" + urllib.parse.unquote(raw)
+    data = _commons_get({
+        "action": "query",
+        "titles": title,
+        "prop": "imageinfo",
+        "iiprop": "url|mime",
+        "format": "json",
+    })
+    for page in data.get("query", {}).get("pages", {}).values():
+        info = page.get("imageinfo", [{}])
+        if info:
+            mime = info[0].get("mime", "")
+            url = info[0].get("url", "")
+            if url and mime in IMAGE_MIMES:
+                return url
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Brave web-search fallback
+# ---------------------------------------------------------------------------
+
 def search_brave(query: str) -> list[str]:
-    """Run brave-web-search and return list of result URLs."""
+    """Run brave-web-search, return result URLs."""
     cmd = [
         "uv", "run", "--directory", str(SEARCH_SKILL),
         "python", "conduit.py", "search", query,
@@ -97,9 +227,10 @@ def search_brave(query: str) -> list[str]:
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=45)
         if result.returncode != 0:
-            logger.warning(f"Search failed for '{query}': {result.stderr[:200]}")
+            logger.warning(f"Brave search failed: {result.stderr[:150]}")
             return []
         data = json.loads(result.stdout)
+        items: list[dict] = []
         if isinstance(data, list):
             items = data
         elif isinstance(data, dict):
@@ -108,90 +239,24 @@ def search_brave(query: str) -> list[str]:
                 or data.get("web", {}).get("results", [])
                 or []
             )
-        else:
-            return []
-        urls = []
-        for item in items:
-            if isinstance(item, dict):
-                url = item.get("url") or item.get("link") or ""
-                if url:
-                    urls.append(url)
-        return urls
-    except json.JSONDecodeError:
-        logger.warning(f"Could not parse search output for '{query}'")
-        return []
+        return [
+            item.get("url") or item.get("link") or ""
+            for item in items
+            if isinstance(item, dict)
+        ]
     except Exception as e:
-        logger.warning(f"Search error for '{query}': {e}")
+        logger.warning(f"Brave search error: {e}")
         return []
-
-
-def search_wikimedia_commons(search_term: str, limit: int = 25) -> list[str]:
-    """Search Wikimedia Commons for images; return direct image URLs."""
-    params = {
-        "action": "query",
-        "generator": "search",
-        "gsrsearch": search_term,
-        "gsrnamespace": "6",
-        "prop": "imageinfo",
-        "iiprop": "url|mime",
-        "format": "json",
-        "gsrlimit": str(limit),
-    }
-    url = "https://commons.wikimedia.org/w/api.php?" + urllib.parse.urlencode(params)
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "trmnl-curator/1.0"})
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read())
-        pages = data.get("query", {}).get("pages", {})
-        urls = []
-        for page in pages.values():
-            info = page.get("imageinfo", [{}])
-            if info:
-                mime = info[0].get("mime", "")
-                img_url = info[0].get("url", "")
-                if img_url and mime in IMAGE_MIMES:
-                    urls.append(img_url)
-        return urls
-    except Exception as e:
-        logger.warning(f"Wikimedia Commons API error for '{search_term}': {e}")
-        return []
-
-
-def wikimedia_file_page_to_image_url(file_page_url: str) -> str | None:
-    """Resolve a Wikimedia Commons file page URL to a direct image URL."""
-    if "/wiki/File:" not in file_page_url:
-        return None
-    raw = file_page_url.split("/wiki/File:")[-1].split("?")[0]
-    file_title = "File:" + urllib.parse.unquote(raw)
-    params = {
-        "action": "query",
-        "titles": file_title,
-        "prop": "imageinfo",
-        "iiprop": "url|mime",
-        "format": "json",
-    }
-    url = "https://commons.wikimedia.org/w/api.php?" + urllib.parse.urlencode(params)
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "trmnl-curator/1.0"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read())
-        pages = data.get("query", {}).get("pages", {})
-        for page in pages.values():
-            info = page.get("imageinfo", [{}])
-            if info:
-                mime = info[0].get("mime", "")
-                img_url = info[0].get("url", "")
-                if img_url and mime in IMAGE_MIMES:
-                    return img_url
-    except Exception as e:
-        logger.debug(f"Could not resolve {file_page_url}: {e}")
-    return None
 
 
 def is_direct_image_url(url: str) -> bool:
     path = urllib.parse.urlparse(url).path.lower().split("?")[0]
     return path.endswith(IMAGE_EXTENSIONS)
 
+
+# ---------------------------------------------------------------------------
+# Downloading
+# ---------------------------------------------------------------------------
 
 def slugify(url: str, index: int) -> str:
     path = urllib.parse.urlparse(url).path
@@ -201,55 +266,71 @@ def slugify(url: str, index: int) -> str:
 
 
 def download_image(url: str, dest: Path) -> bool:
-    try:
-        req = urllib.request.Request(
-            url,
-            headers={"User-Agent": "Mozilla/5.0 (compatible; trmnl-curator/1.0)"},
-        )
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            content = resp.read()
-        if len(content) < 500:
+    """Download with retry + exponential backoff on HTTP 429."""
+    import urllib.error
+    for attempt in range(4):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                content = resp.read()
+            if len(content) < 500:
+                logger.debug(f"Skipping tiny response ({len(content)}B)")
+                return False
+            dest.write_bytes(content)
+            return True
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                wait = 8 * (2 ** attempt)  # 8s, 16s, 32s, 64s
+                logger.warning(f"429 rate limited (attempt {attempt+1}), waiting {wait}s...")
+                time.sleep(wait)
+            else:
+                logger.warning(f"HTTP {e.code}: {url[:80]}")
+                return False
+        except Exception as e:
+            logger.warning(f"Download failed: {type(e).__name__}: {e}")
             return False
-        dest.write_bytes(content)
-        return True
-    except Exception as e:
-        logger.debug(f"Download failed for {url}: {e}")
-        return False
+    logger.warning(f"Gave up after 4 attempts: {url[:80]}")
+    return False
 
+
+# ---------------------------------------------------------------------------
+# Per-artist orchestration
+# ---------------------------------------------------------------------------
 
 def collect_candidate_urls(artist: dict) -> list[str]:
-    """Gather candidate image URLs for an artist from all sources."""
-    urls: dict[str, None] = {}  # ordered set
+    seen: dict[str, None] = {}
 
-    # Primary: Wikimedia Commons API
-    for u in search_wikimedia_commons(artist["commons_search"], limit=30):
-        urls[u] = None
-    logger.info(f"  Wikimedia Commons API: {len(urls)} URLs")
+    # Primary: Commons category membership
+    for cat in artist.get("commons_categories", []):
+        for u in fetch_category_image_urls(cat, limit=60):
+            seen[u] = None
+        if len(seen) >= IMAGES_PER_ARTIST * 3:
+            break
 
-    if len(urls) < IMAGES_PER_ARTIST:
-        # Supplement: brave-web-search results
-        for query in artist["queries"]:
-            for page_url in search_brave(query):
-                if "commons.wikimedia.org/wiki/File:" in page_url:
-                    img_url = wikimedia_file_page_to_image_url(page_url)
-                    if img_url:
-                        urls[img_url] = None
-                elif is_direct_image_url(page_url):
-                    urls[page_url] = None
-            time.sleep(REQUEST_DELAY)
-        logger.info(f"  After web search: {len(urls)} candidate URLs")
+    # Fallback: brave-web-search (used for Gorey, Escher)
+    for query in artist.get("brave_queries", []):
+        if len(seen) >= IMAGES_PER_ARTIST * 3:
+            break
+        for page_url in search_brave(query):
+            if "commons.wikimedia.org/wiki/File:" in page_url:
+                img_url = wikimedia_file_page_to_image_url(page_url)
+                if img_url:
+                    seen[img_url] = None
+            elif is_direct_image_url(page_url):
+                seen[page_url] = None
+        time.sleep(REQUEST_DELAY)
 
-    return list(urls.keys())
+    logger.info(f"  {len(seen)} total candidate URLs")
+    return list(seen.keys())
 
 
 def fetch_artist(artist: dict) -> list[dict]:
-    """Download images for one artist. Returns manifest entries."""
     slug = artist["slug"]
     name = artist["name"]
     dest_dir = OUTPUT_DIR / slug
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info(f"Fetching images for {name}...")
+    logger.info(f"=== {name} ===")
     candidates = collect_candidate_urls(artist)
 
     entries: list[dict] = []
@@ -262,35 +343,28 @@ def fetch_artist(artist: dict) -> list[dict]:
         dest = dest_dir / filename
 
         if dest.exists():
-            logger.info(f"  Already exists: {filename}")
-            entries.append(
-                {"artist": name, "slug": slug, "local_path": str(dest), "source_url": url}
-            )
+            entries.append({"artist": name, "slug": slug, "local_path": str(dest), "source_url": url})
             count += 1
             continue
 
         logger.info(f"  [{count + 1}/{IMAGES_PER_ARTIST}] {filename}")
         if download_image(url, dest):
-            entries.append(
-                {"artist": name, "slug": slug, "local_path": str(dest), "source_url": url}
-            )
+            entries.append({"artist": name, "slug": slug, "local_path": str(dest), "source_url": url})
             count += 1
-        time.sleep(0.3)
+        time.sleep(2.0)
 
-    logger.info(f"  Done: {count} images for {name}")
+    logger.info(f"  Done: {count}/{IMAGES_PER_ARTIST} images\n")
     return entries
 
 
 def main() -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     manifest: list[dict] = []
-
     for artist in ARTISTS:
         entries = fetch_artist(artist)
         manifest.extend(entries)
-
     MANIFEST_PATH.write_text(json.dumps(manifest, indent=2))
-    logger.info(f"Manifest saved to {MANIFEST_PATH} ({len(manifest)} total entries)")
+    logger.info(f"Manifest: {MANIFEST_PATH} ({len(manifest)} entries)")
 
 
 if __name__ == "__main__":

@@ -46,12 +46,17 @@ def build_engine_from_config() -> tuple[ImageEngine, str, list[str]]:
     name = _DEFAULT_ENGINE
     sequence = list(_DEFAULT_SEQUENCE)
 
+    extra: dict = {}
     try:
         if CONFIG_FILE.exists():
             with CONFIG_FILE.open() as f:
                 data = yaml.safe_load(f) or {}
             name = data.get("engine", _DEFAULT_ENGINE)
             sequence = data.get("sequence", list(_DEFAULT_SEQUENCE))
+            if data.get("artist"):
+                extra["artist"] = data["artist"]
+            if data.get("artists"):
+                extra["artists"] = data["artists"]
     except Exception as e:
         logger.warning(f"config.yaml missing/unparseable ({e}), defaulting to mix")
         name = _DEFAULT_ENGINE
@@ -62,12 +67,13 @@ def build_engine_from_config() -> tuple[ImageEngine, str, list[str]]:
         name = _DEFAULT_ENGINE
         sequence = list(_DEFAULT_SEQUENCE)
 
-    return _instantiate_engine(name, sequence, registry)
+    return _instantiate_engine(name, sequence, registry, extra=extra)
 
 
 def _instantiate_engine(
-    name: str, sequence: list[str], registry: dict[str, type]
+    name: str, sequence: list[str], registry: dict[str, type], extra: dict | None = None
 ) -> tuple[ImageEngine, str, list[str]]:
+    extra = extra or {}
     if name == "mix":
         from trmnl.engines.router import MixEngine
         valid = [s for s in sequence if s in registry]
@@ -76,7 +82,7 @@ def _instantiate_engine(
         engines = [registry[s]() for s in valid]
         return MixEngine(engines), "mix", valid
     else:
-        return registry[name](), name, []
+        return registry[name](**extra), name, []
 
 
 def load_settings() -> Settings:

@@ -10,7 +10,7 @@ async def test_illustration_engine_empty_cache_raises(tmp_path, monkeypatch):
     monkeypatch.setattr(illustration_mod, "ILLUSTRATION_DIR", tmp_path)
 
     engine = illustration_mod.IllustrationEngine()
-    with pytest.raises(RuntimeError, match="curate_illustrations"):
+    with pytest.raises(RuntimeError, match="convert_illustrations"):
         await engine.next()
 
 

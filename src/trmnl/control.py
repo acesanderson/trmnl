@@ -17,6 +17,8 @@ router = APIRouter(prefix="/api/control")
 class EngineRequest(BaseModel):
     engine: str
     sequence: list[str] | None = None
+    artist: str | None = None
+    artists: list[str] | None = None
 
 
 @router.get("/status")
@@ -46,14 +48,19 @@ async def set_engine(request: Request, body: EngineRequest):
         raise HTTPException(400, detail=f"Unknown engine '{body.engine}'. Valid engines: {valid}")
 
     sequence = body.sequence or list(registry.keys())
-    engine_obj, name, resolved_seq = _build(body.engine, sequence, registry)
+    extra = {}
+    if body.artist:
+        extra["artist"] = body.artist
+    if body.artists:
+        extra["artists"] = body.artists
+    engine_obj, name, resolved_seq = _build(body.engine, sequence, registry, extra=extra)
 
     eng_router: EngineRouter = request.app.state.router
     eng_router.set_engine(engine_obj, name, resolved_seq)
 
-    _write_config(name, resolved_seq)
-    logger.info(f"Control: POST /engine -> {name} {resolved_seq}")
-    return {"ok": True, "engine": name, "sequence": resolved_seq}
+    _write_config(name, resolved_seq, extra=extra)
+    logger.info(f"Control: POST /engine -> {name} {resolved_seq} {extra}")
+    return {"ok": True, "engine": name, "sequence": resolved_seq, **extra}
 
 
 @router.post("/next")
@@ -78,7 +85,8 @@ async def reload_config(request: Request):
     return {"ok": True, "engine": name, "sequence": sequence}
 
 
-def _build(name: str, sequence: list[str], registry: dict) -> tuple:
+def _build(name: str, sequence: list[str], registry: dict, extra: dict | None = None) -> tuple:
+    extra = extra or {}
     if name == "mix":
         valid = [s for s in sequence if s in registry]
         if not valid:
@@ -86,10 +94,13 @@ def _build(name: str, sequence: list[str], registry: dict) -> tuple:
         engines = [registry[s]() for s in valid]
         return MixEngine(engines), "mix", valid
     else:
-        return registry[name](), name, []
+        return registry[name](**extra), name, []
 
 
-def _write_config(name: str, sequence: list[str]) -> None:
+def _write_config(name: str, sequence: list[str], extra: dict | None = None) -> None:
     CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    data: dict = {"engine": name, "sequence": sequence}
+    if extra:
+        data.update(extra)
     with CONFIG_FILE.open("w") as f:
-        yaml.dump({"engine": name, "sequence": sequence}, f)
+        yaml.dump(data, f)
